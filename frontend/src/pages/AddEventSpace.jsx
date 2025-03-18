@@ -1,201 +1,137 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Container, Form, Button, Alert } from "react-bootstrap";
-
-// Cities and Locations Data
-const citiesData = {
-  Vijayawada: ["Labbipet", "Patamata", "Mogalrajpuram"],
-  Hyderabad: ["L.B.Nagar", "Jubilee Hills", "Banjara Hills"],
-  Vizag: ["Bhemilli", "Seethammadhara", "Rushikonda"],
-};
-
-const eventTypes = ["Banquet Hall", "Conference Room", "Auditorium", "Open Garden"];
+import { useNavigate } from "react-router-dom";
+import "./AddEventSpace.css";
 
 const AddEventSpace = () => {
-  const [formData, setFormData] = useState({
-    name: "",
-    price: "",
-    address: "",
-    city: "",
-    location: "",
-    type: "",
-    capacity: "",
-    vegMeals: "",
-    nonVegMeals: "",
-    parkingAvailable: false,
-    acAvailable: false,
-    images: [],
-    timeSlots: [],
-  });
-
-  const [locations, setLocations] = useState([]);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
+    const [eventData, setEventData] = useState({
+        name: "",
+        city: "",
+        location: "",
+        type: "",
+        images: [],
+        acAvailable: false,
+        parkingAvailable: false,
+        capacity: "",
+        meals: "",
+        address: "",
+        price: ""
     });
 
-    if (name === "city") {
-      setLocations(citiesData[value] || []);
-      setFormData({ ...formData, city: value, location: "" });
-    }
-  };
+    const navigate = useNavigate();
 
-  const handleFileChange = (e) => {
-    setFormData({ ...formData, images: e.target.files });
-  };
+    const locationsByCity = {
+        Vijayawada: ["Labbipet", "Patamata", "Gurunanak Colony"],
+        Hyderabad: ["L.B.Nagar", "Jubilee Hills", "Banjara Hills"],
+        Vizag: ["Bheemili", "Seethamadhara", "Rushikonda"],
+      };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
-    const formDataToSend = new FormData();
-    Object.keys(formData).forEach((key) => {
-      if (key === "images") {
-        Array.from(formData.images).forEach((file) => {
-          formDataToSend.append("images", file);
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setEventData({
+            ...eventData,
+            [name]: type === "checkbox" ? checked : value,
         });
-      } else if (key === "timeSlots") {
-        formDataToSend.append("timeSlots", formData.timeSlots.join(","));
-      } else {
-        formDataToSend.append(key, formData[key]);
-      }
-    });
+    };
 
-    try {
-      await axios.post("http://localhost:5000/api/eventSpaces/add", formDataToSend, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      navigate("/event-spaces");
-    } catch (error) {
-      setError("Failed to add event space. Please try again.");
-    }
-  };
+    const handleCityChange = (e) => {
+        setEventData({
+            ...eventData,
+            city: e.target.value,
+            location: "",
+        });
+    };
 
-  return (
-    <Container className="mt-4">
-      <h2>Add Event Space</h2>
-      {error && <Alert variant="danger">{error}</Alert>}
-      <Form onSubmit={handleSubmit}>
-        <Form.Group>
-          <Form.Label>Event Space Name</Form.Label>
-          <Form.Control type="text" name="name" value={formData.name} onChange={handleChange} required />
-        </Form.Group>
+    const handleImageUpload = (event) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
 
-        <Form.Group>
-          <Form.Label>Price</Form.Label>
-          <Form.Control type="number" name="price" value={formData.price} onChange={handleChange} required />
-        </Form.Group>
+        const newImages = [];
+        for (let i = 0; i < files.length && i < 15; i++) {
+            const file = files[i];
+            const reader = new FileReader();
 
-        <Form.Group>
-          <Form.Label>Address</Form.Label>
-          <Form.Control type="text" name="address" value={formData.address} onChange={handleChange} required />
-        </Form.Group>
+            reader.onloadend = () => {
+                newImages.push(reader.result);
+                if (newImages.length === files.length || newImages.length === 15) {
+                    setEventData((prev) => ({
+                        ...prev,
+                        images: [...prev.images, ...newImages].slice(0, 15)
+                    }));
+                }
+            };
 
-        <Form.Group>
-          <Form.Label>City</Form.Label>
-          <Form.Control as="select" name="city" value={formData.city} onChange={handleChange} required>
-            <option value="">Select City</option>
-            {Object.keys(citiesData).map((city, index) => (
-              <option key={index} value={city}>
-                {city}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
+            reader.readAsDataURL(file);
+        }
+    };
 
-        <Form.Group>
-          <Form.Label>Location</Form.Label>
-          <Form.Control as="select" name="location" value={formData.location} onChange={handleChange} required>
-            <option value="">Select Location</option>
-            {locations.map((location, index) => (
-              <option key={index} value={location}>
-                {location}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await axios.post("http://localhost:5000/api/event-spaces/add", eventData, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            });
+            alert("Event Space Added Successfully!");
+            navigate("/my-event-spaces");
+        } catch (error) {
+            alert("Error adding event space");
+            console.error("Error:", error);
+        }
+    };
 
-        <Form.Group>
-          <Form.Label>Event Type</Form.Label>
-          <Form.Control as="select" name="type" value={formData.type} onChange={handleChange} required>
-            <option value="">Select Event Type</option>
-            {eventTypes.map((type, index) => (
-              <option key={index} value={type}>
-                {type}
-              </option>
-            ))}
-          </Form.Control>
-        </Form.Group>
-
-        <Form.Group>
-          <Form.Label>Capacity</Form.Label>
-          <Form.Control type="number" name="capacity" value={formData.capacity} onChange={handleChange} required />
-        </Form.Group>
-
-        <Form.Group>
-          <Form.Label>Veg Meals</Form.Label>
-          <Form.Control type="number" name="vegMeals" value={formData.vegMeals} onChange={handleChange} required />
-        </Form.Group>
-
-        <Form.Group>
-          <Form.Label>Non-Veg Meals</Form.Label>
-          <Form.Control type="number" name="nonVegMeals" value={formData.nonVegMeals} onChange={handleChange} required />
-        </Form.Group>
-
-        <Form.Group>
-          <Form.Check
-            type="checkbox"
-            label="Parking Available"
-            name="parkingAvailable"
-            checked={formData.parkingAvailable}
-            onChange={handleChange}
-          />
-        </Form.Group>
-
-        <Form.Group>
-          <Form.Check type="checkbox" label="AC Available" name="acAvailable" checked={formData.acAvailable} onChange={handleChange} />
-        </Form.Group>
-
-        <Form.Group>
-          <Form.Label>Upload Images</Form.Label>
-          <Form.Control type="file" name="images" multiple onChange={handleFileChange} required />
-        </Form.Group>
-
-        <Form.Group>
-          <Form.Label>Time Slots</Form.Label>
-          <Form.Control
-            as="select"
-            multiple
-            name="timeSlots"
-            value={formData.timeSlots}
-            onChange={(e) => setFormData({ ...formData, timeSlots: Array.from(e.target.selectedOptions, (option) => option.value) })}
-          >
-            <option value="9 AM TO 3 PM">9 AM TO 3 PM</option>
-            <option value="3 PM TO 6 PM">3 PM TO 6 PM</option>
-            <option value="6 PM TO 11 PM">6 PM TO 11 PM</option>
-            <option value="11 PM TO 8 AM">11 PM TO 8 AM</option>
-          </Form.Control>
-        </Form.Group>
-
-        <Button type="submit" variant="primary" className="mt-3">
-          Add Event Space
-        </Button>
-      </Form>
-    </Container>
-  );
+    return (
+        <div className="add-event-container">
+            <div className="add-event-box">
+                <h2 className="text-center">Add Event Space</h2>
+                <form onSubmit={handleSubmit}>
+                    <input type="text" name="name" placeholder="Event Space Name" className="form-control input-field" onChange={handleChange} required />
+                    <select name="city" className="form-control input-field" onChange={handleCityChange} required>
+                        <option value="">Select City</option>
+                        {Object.keys(locationsByCity).map((city) => (
+                            <option key={city} value={city}>{city}</option>
+                        ))}
+                    </select>
+                    <select name="location" className="form-control input-field" onChange={handleChange} value={eventData.location} required disabled={!eventData.city}>
+                        <option value="">Select Location</option>
+                        {eventData.city && locationsByCity[eventData.city].map((location) => (
+                            <option key={location} value={location}>{location}</option>
+                        ))}
+                    </select>
+                    <select name="type" className="form-control input-field" onChange={handleChange} required>
+                        <option value="">Select Type</option>
+                        <option value="Banquet Hall">Banquet Hall</option>
+                        <option value="Auditorium">Auditorium</option>
+                        <option value="Open Garden">Open Garden</option>
+                        <option value="Conference Room">Conference Room</option>
+                    </select>
+                    <div className="image-upload-box">
+                        <label className="form-label"><strong>Upload Images (Max 15)</strong></label>
+                        <input type="file" multiple accept="image/*" className="form-control" onChange={handleImageUpload} />
+                    </div>
+                    <div className="image-preview-box">
+                        {eventData.images.map((image, index) => (
+                            <img key={index} src={image} alt="Preview" className="image-preview" />
+                        ))}
+                    </div>
+                    <input type="number" name="capacity" placeholder="Capacity" className="form-control input-field" onChange={handleChange} required />
+                    <select name="meals" className="form-control input-field" onChange={handleChange} required>
+                        <option value="">Select Meals Availability</option>
+                        <option value="Veg">Veg</option>
+                        <option value="Non-Veg">Non-Veg</option>
+                        <option value="Both">Both</option>
+                        <option value="Not Available">Not Available</option>
+                    </select>
+                    <input type="text" name="address" placeholder="Address" className="form-control input-field" onChange={handleChange} required />
+                    <input type="number" name="price" placeholder="Price" className="form-control input-field" onChange={handleChange} required />
+                    <div className="checkbox-group">
+                        <input type="checkbox" name="acAvailable" onChange={handleChange} /> AC Available
+                        <input type="checkbox" name="parkingAvailable" onChange={handleChange} className="ms-3" /> Parking Available
+                    </div>
+                    <button type="submit" className="btn btn-success submit-btn">Add Event Space</button>
+                </form>
+            </div>
+        </div>
+    );
 };
 
 export default AddEventSpace;

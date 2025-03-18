@@ -1,182 +1,150 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, Button, Carousel, Card, ListGroup, Form } from "react-bootstrap";
-import { getEventSpaceById, bookEventSpace } from "../services/api";
+import axios from "axios";
+import Carousel from "react-bootstrap/Carousel";
+import "./EventSpaceDetails.css"; // Add a separate CSS file for extra styling
 
 const EventSpaceDetails = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [eventSpace, setEventSpace] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selectedDate, setSelectedDate] = useState(""); 
-  const [selectedSlot, setSelectedSlot] = useState("");
-  const [selectedMeal, setSelectedMeal] = useState("");
-  const [numPeople, setNumPeople] = useState(1);
-  const [availableSlots, setAvailableSlots] = useState([]);
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const [eventSpace, setEventSpace] = useState(null);
+    const [availableDates, setAvailableDates] = useState([]);
+    const [availableSlots, setAvailableSlots] = useState({});
+    const [availableMeals, setAvailableMeals] = useState([]);
+    const [selectedDate, setSelectedDate] = useState("");
 
-  useEffect(() => {
-    if (!id) return;
+    const [bookingData, setBookingData] = useState({
+        date: "",
+        meal: "Not Required",  // ✅ Set "Not Required" as default
+        timeSlot: "",
+        people: "",
+    });
 
-    const fetchEventSpace = async () => {
-      try {
-        setLoading(true);
-        const response = await getEventSpaceById(id, selectedDate); 
-        setEventSpace(response.data);
-        setAvailableSlots(response.data.availableSlots || []); 
-      } catch (err) {
-        console.error("Error fetching event space details:", err);
-        setError("Failed to load event space details.");
-      } finally {
-        setLoading(false);
-      }
+    useEffect(() => {
+        const fetchEventSpace = async () => {
+            try {
+                const res = await axios.get(`http://localhost:5000/api/event-spaces/${id}`);
+                setEventSpace(res.data);
+
+                const dateRes = await axios.get(`http://localhost:5000/api/bookings/available-dates-slots/${id}`);
+                setAvailableDates(dateRes.data.availableDates);
+                setAvailableSlots(dateRes.data.availableSlots);
+
+                // ✅ Include "Not Required" in meal options
+                const meals = ["Not Required"];
+                if (res.data.meals === "Veg") meals.push("Veg");
+                if (res.data.meals === "Non-Veg") meals.push("Non-Veg");
+                if (res.data.meals === "Both") meals.push("Veg", "Non-Veg", "Both");
+                if (res.data.meals === "Not Available") meals.push("Not Available");
+                setAvailableMeals(meals);
+            } catch (error) {
+                console.error("Error fetching event space", error);
+            }
+        };
+
+        fetchEventSpace();
+    }, [id]);
+
+    const handleDateChange = (e) => {
+        const selected = e.target.value;
+        setSelectedDate(selected);
+        setBookingData({ ...bookingData, date: selected, timeSlot: "" });
     };
 
-    fetchEventSpace();
-  }, [id, selectedDate]); 
-  const handleBooking = async () => {
-    if (!selectedDate || !selectedSlot || !selectedMeal || !numPeople) {
-      return alert("All fields are required.");
-    }
-  
-    const bookingData = {
-      date: selectedDate,
-      timeSlot: selectedSlot,
-      mealType: selectedMeal,
-      numPeople,
-      userId: localStorage.getItem("userId"), // Get user ID from localStorage
+    const handleBooking = async () => {
+        if (!bookingData.date || !bookingData.timeSlot || !bookingData.people) {
+            alert("Please fill in all required booking details.");
+            return;
+        }
+
+        try {
+            await axios.post("http://localhost:5000/api/bookings/add", {
+                eventSpaceId: id,
+                ...bookingData
+            }, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            });
+
+            alert("Booking Successful!");
+            navigate("/my-bookings");
+        } catch (error) {
+            console.error("Error booking event space", error);
+            alert("Booking failed. Please try again.");
+        }
     };
-  
-    try {
-      const token = localStorage.getItem("token");
-      console.log(token)
-      await axios.post(
-        `http://localhost:5000/api/eventSpaces/${id}/book`,
-        bookingData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert("Booking Successful!");
-      navigate("/my-bookings");
-    } catch (error) {
-      alert(error.response?.data?.error || "Booking failed. Please try again.");
-    }
-  };
-  
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p className="error">{error}</p>;
-  if (!eventSpace) return <p>No event space found.</p>;
 
-  return (
-    <Container className="mt-4">
-      <h2>{eventSpace.name}</h2>
+    if (!eventSpace) return <div className="text-center mt-5">Loading...</div>;
 
-      {/* Carousel for Images */}
-      <Carousel className="mb-4">
-        {eventSpace.images?.length > 0 ? (
-          eventSpace.images.map((img, index) => (
-            <Carousel.Item key={index}>
-              <img 
-                className="d-block w-100" 
-                src={`http://localhost:5000${img}`} 
-                alt={`Slide ${index + 1}`} 
-                style={{ maxHeight: "400px", objectFit: "cover" }} 
-              />
-            </Carousel.Item>
-          ))
-        ) : (
-          <p>No images available</p>
-        )}
-      </Carousel>
+    return (
+        <div className="container mt-5">
+            <div className="card event-details-card p-4 shadow-lg">
+                <h2 className="text-center event-title mb-4">{eventSpace.name}</h2>
 
-      {/* Event Space Details */}
-      <Card>
-        <Card.Body>
-          <Card.Title>Details</Card.Title>
-          <ListGroup>
-            <ListGroup.Item><strong>Type:</strong> {eventSpace.type}</ListGroup.Item>
-            <ListGroup.Item><strong>Location:</strong> {eventSpace.city}, {eventSpace.location}</ListGroup.Item>
-            <ListGroup.Item><strong>Price:</strong> ₹{eventSpace.price}</ListGroup.Item>
-            <ListGroup.Item><strong>Capacity:</strong> {eventSpace.capacity} people</ListGroup.Item>
-            <ListGroup.Item><strong>Parking:</strong> {eventSpace.parkingAvailable ? "Available" : "Not Available"}</ListGroup.Item>
-            <ListGroup.Item><strong>AC:</strong> {eventSpace.acAvailable ? "Available" : "Not Available"}</ListGroup.Item>
-          </ListGroup>
-        </Card.Body>
-      </Card>
+                <Carousel className="event-carousel">
+                    {eventSpace.images.map((img, index) => (
+                        <Carousel.Item key={index}>
+                            <img className="d-block w-100 event-img" src={img} alt={`Image ${index + 1}`} />
+                        </Carousel.Item>
+                    ))}
+                </Carousel>
 
-      {/* Booking Section */}
-      <Card className="mt-3">
-        <Card.Body>
-          <Card.Title>Book This Space</Card.Title>
+                <div className="event-info mt-4">
+                    <p><strong>City:</strong> {eventSpace.city}</p>
+                    <p><strong>Location:</strong> {eventSpace.location}</p>
+                    <p><strong>Type:</strong> {eventSpace.type}</p>
+                    <p><strong>AC Available:</strong> {eventSpace.acAvailable ? "Yes" : "No"}</p>
+                    <p><strong>Parking Available:</strong> {eventSpace.parkingAvailable ? "Yes" : "No"}</p>
+                    <p><strong>Price:</strong> <span className="event-price">₹{eventSpace.price}</span></p>
+                    <p><strong>Capacity:</strong> {eventSpace.capacity} people</p>
+                </div>
 
-          {/* Select Date */}
-          <Form.Group className="mb-3">
-            <Form.Label>Select Date</Form.Label>
-            <Form.Control 
-              type="date" 
-              value={selectedDate} 
-              onChange={(e) => setSelectedDate(e.target.value)} 
-            />
-          </Form.Group>
+                <h3 className="mt-4 text-center">Book This Event Space</h3>
 
-          {/* Select Meal */}
-          <Form.Group className="mb-3">
-            <Form.Label>Meal Options</Form.Label>
-            <div>
-              <Form.Check 
-                type="radio" 
-                label={`Veg - ₹${eventSpace.meals?.veg}`} 
-                name="meal" 
-                value="veg" 
-                onChange={(e) => setSelectedMeal(e.target.value)}
-              />
-              <Form.Check 
-                type="radio" 
-                label={`Non-Veg - ₹${eventSpace.meals?.nonVeg}`} 
-                name="meal" 
-                value="nonVeg" 
-                onChange={(e) => setSelectedMeal(e.target.value)}
-              />
+                <div className="booking-form mt-3">
+                    <select className="form-control" onChange={handleDateChange}>
+                        <option value="">Select Available Date</option>
+                        {availableDates.length > 0 ? (
+                            availableDates.map((date, index) => (
+                                <option key={index} value={date}>{date}</option>
+                            ))
+                        ) : (
+                            <option disabled>No available dates</option>
+                        )}
+                    </select>
+
+                    {/* ✅ Meal Selection with "Not Required" as Default */}
+                    <select
+                        className="form-control mt-2"
+                        value={bookingData.meal}
+                        onChange={(e) => setBookingData({ ...bookingData, meal: e.target.value })}
+                    >
+                        {availableMeals.length > 0 ? (
+                            availableMeals.map((meal, index) => (
+                                <option key={index} value={meal}>{meal}</option>
+                            ))
+                        ) : (
+                            <option disabled>No meal options available</option>
+                        )}
+                    </select>
+
+                    <select className="form-control mt-2" onChange={(e) => setBookingData({ ...bookingData, timeSlot: e.target.value })} disabled={!selectedDate}>
+                        <option value="">Select Time Slot</option>
+                        {selectedDate && availableSlots[selectedDate]?.length > 0 ? (
+                            availableSlots[selectedDate].map((slot, index) => (
+                                <option key={index} value={slot}>{slot}</option>
+                            ))
+                        ) : (
+                            <option disabled>No available slots</option>
+                        )}
+                    </select>
+
+                    <input type="number" className="form-control mt-2" placeholder="Number of People" onChange={(e) => setBookingData({ ...bookingData, people: e.target.value })} />
+
+                    <button className="btn btn-primary btn-lg mt-3 w-100" onClick={handleBooking}>Book Now</button>
+                </div>
             </div>
-          </Form.Group>
-
-          {/* Select Available Time Slot */}
-          <Form.Group className="mb-3">
-            <Form.Label>Available Time Slots</Form.Label>
-            <Form.Select 
-              disabled={!selectedDate} 
-              onChange={(e) => setSelectedSlot(e.target.value)}
-            >
-              <option value="">Select a time slot</option>
-              {availableSlots.length > 0 ? (
-                availableSlots.map((slot, index) => (
-                  <option key={index} value={slot}>{slot}</option>
-                ))
-              ) : (
-                <option disabled>No slots available</option>
-              )}
-            </Form.Select>
-          </Form.Group>
-
-          {/* Number of People */}
-          <Form.Group className="mb-3">
-            <Form.Label>Number of People</Form.Label>
-            <Form.Control 
-              type="number" 
-              value={numPeople} 
-              min="1" 
-              max={eventSpace.capacity} 
-              onChange={(e) => setNumPeople(e.target.value)} 
-            />
-          </Form.Group>
-
-          {/* Book Now Button */}
-          <Button variant="primary" onClick={handleBooking}>
-            Book Now
-          </Button>
-        </Card.Body>
-      </Card>
-    </Container>
-  );
+        </div>
+    );
 };
 
 export default EventSpaceDetails;

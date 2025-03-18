@@ -1,13 +1,14 @@
 const mongoose = require("mongoose");
 
 const BookingSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  eventSpace: { type: mongoose.Schema.Types.ObjectId, ref: "EventSpace", required: true },
-  date: { type: String, required: true }, // YYYY-MM-DD format
-  timeSlot: { type: String, required: true },
-  mealType: { type: String, required: true },
-  numPeople: { type: Number, required: true },
-  totalPrice: { type: Number, required: true }, // ✅ Store calculated price
+    eventSpaceId: { type: mongoose.Schema.Types.ObjectId, ref: "EventSpace", required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // ✅ Store Event Space Owner's ID
+    date: { type: String, required: true },
+    meal: { type: String, required: true },
+    timeSlot: { type: String, required: true },
+    people: { type: Number, required: true },
+    status: { type: String, default: "Confirmed" }
 });
 
 module.exports = mongoose.model("Booking", BookingSchema);

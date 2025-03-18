@@ -1,73 +1,82 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Navbar, Nav, Container, Button } from "react-bootstrap";
+import { useContext } from "react";
+import { Link, useNavigate } from "react-router-dom"; // ✅ Import useNavigate
+import { AuthContext } from "../context/AuthContext";
+import "./Navbar.css";  // ✅ Add this at the top
 
-const CustomNavbar = () => {
-  const [role, setRole] = useState(localStorage.getItem("role"));
-  const navigate = useNavigate();
+const Navbar = () => {
+    const authContext = useContext(AuthContext);
+    if (!authContext) return null;
 
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setRole(localStorage.getItem("role")); // Update role dynamically
-    };
+    const { user, logout } = authContext;
+    const navigate = useNavigate(); // ✅ Use navigate inside Navbar
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+    return (
+        <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div className="container">
+                <Link className="navbar-brand" to="/">EventSpace</Link>
+                <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span className="navbar-toggler-icon"></span>
+                </button>
 
-  const handleLogout = () => {
-    localStorage.removeItem("role");
-    localStorage.removeItem("token");
-    setRole(null);
-    navigate("/");
-  };
+                <div className="collapse navbar-collapse" id="navbarNav">
+                    <ul className="navbar-nav ms-auto">
+                        <li className="nav-item">
+                            <Link className="nav-link" to="/">Home</Link>
+                        </li>
 
-  return (
-    <Navbar bg="dark" variant="dark" expand="lg">
-      <Container>
-        <Navbar.Brand as={Link} to="/">Event Booking</Navbar.Brand>
-        <Navbar.Toggle aria-controls="basic-navbar-nav" />
-        <Navbar.Collapse id="basic-navbar-nav">
-          <Nav className="ms-auto">
-            <Nav.Link as={Link} to="/">Home</Nav.Link>
+                        {user ? (
+                            <>
+                                {user.role === "user" && (
+                                    <li className="nav-item">
+                                        <Link className="nav-link" to="/my-bookings">My Bookings</Link>
+                                    </li>
+                                )}
 
-            {/* User Navbar */}
-            {role === "user" && (
-              <>
-                <Nav.Link as={Link} to="/my-bookings">My Bookings</Nav.Link>
-                <Button variant="danger" onClick={handleLogout} className="ms-2">Logout</Button>
-              </>
-            )}
+                                {user.role === "owner" && (
+                                    <>
+                                        <li className="nav-item">
+                                            <Link className="nav-link" to="/owner-bookings">My Bookings</Link>
+                                        </li>
+                                        <li className="nav-item">
+                                            <Link className="nav-link" to="/my-event-spaces">My Event Spaces</Link>
+                                        </li>
+                                        <li className="nav-item">
+                                            <Link className="nav-link" to="/add-event-space">Add Event Space</Link>
+                                        </li>
+                                    </>
+                                )}
 
-            {/* Owner Navbar */}
-            {role === "owner" && (
-              <>
-                <Nav.Link as={Link} to="/add-event-space">Add Event Space</Nav.Link>
-                <Nav.Link as={Link} to="/my-bookings">My Bookings</Nav.Link>
-                <Button variant="danger" onClick={handleLogout} className="ms-2">Logout</Button>
-              </>
-            )}
+                                {user.role === "admin" && (
+                                    <li className="nav-item">
+                                        <Link className="nav-link" to="/admin-panel">Admin Panel</Link>
+                                    </li>
+                                )}
 
-            {/* Admin Navbar */}
-            {role === "admin" && (
-              <>
-                <Nav.Link as={Link} to="/admin-panel">Admin Panel</Nav.Link>
-                <Button variant="danger" onClick={handleLogout} className="ms-2">Logout</Button>
-              </>
-            )}
-
-            {/* Guest (Not Logged In) */}
-            {!role && (
-              <>
-                <Nav.Link as={Link} to="/login">Login</Nav.Link>
-                <Nav.Link as={Link} to="/register">Register</Nav.Link>
-              </>
-            )}
-          </Nav>
-        </Navbar.Collapse>
-      </Container>
-    </Navbar>
-  );
+                                <li className="nav-item dropdown">
+                                    <a className="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                        Profile
+                                    </a>
+                                    <ul className="dropdown-menu">
+                                        <li><Link className="dropdown-item" to="/profile">My Profile</Link></li>
+                                        <li><button className="dropdown-item text-danger" onClick={() => logout(navigate)}>Logout</button></li> {/* ✅ Pass navigate to logout */}
+                                    </ul>
+                                </li>
+                            </>
+                        ) : (
+                            <>
+                                <li className="nav-item">
+                                    <Link className="nav-link" to="/register">Register</Link>
+                                </li>
+                                <li className="nav-item">
+                                    <Link className="nav-link" to="/login">Login</Link>
+                                </li>
+                            </>
+                        )}
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    );
 };
 
-export default CustomNavbar;
+export default Navbar;

@@ -1,33 +1,18 @@
 const mongoose = require("mongoose");
 
-const eventSpaceSchema = new mongoose.Schema({
-  name: String,
-  owner: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  city: String,
-  location: String,
-  type: String,
-  price: Number,
-  capacity: Number,
-  parkingAvailable: Boolean,
-  acAvailable: Boolean,
-  meals: {
-    veg: Number,
-    nonVeg: Number,
-  },
-  images: [String],
-  timeSlots:  {
-    type: [String],
-    default: ["9 AM TO 3 PM", "3 PM TO 6 PM", "6 PM TO 11 PM", "11 PM TO 8 AM"],
-  }, // Static list of available slots
-  bookings: [
-    {
-      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      date: String, // Format: YYYY-MM-DD
-      timeSlot: String,
-      mealType: String,
-      numPeople: Number,
-    },
-  ],
+const EventSpaceSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    city: { type: String, required: true },
+    location: { type: String, required: true },
+    type: { type: String, required: true },
+    images: { type: [String], required: true },
+    acAvailable: { type: Boolean, required: true },
+    parkingAvailable: { type: Boolean, required: true },
+    capacity: { type: Number, required: true },
+    meals: { type: String, required: true },
+    address: { type: String, required: true },
+    price: { type: Number, required: true },
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true } // ✅ Ensure ownerId is required
 });
 
-module.exports = mongoose.model("EventSpace", eventSpaceSchema);
+module.exports = mongoose.model("EventSpace", EventSpaceSchema);

@@ -1,48 +1,54 @@
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const User = require("../models/User");
 
-const verifyToken = (req, res, next) => {
-  const authHeader = req.header("Authorization");
+exports.authMiddleware = async (req, res, next) => {
+    try {
+        const authHeader = req.header("Authorization");
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Access Denied. No Token Provided." });
-  }
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({ message: "No token, authorization denied" });
+        }
 
-  const token = authHeader.split(" ")[1]; // Extract token
+        const token = authHeader.split(" ")[1];
 
-  try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified; // Attach user info to request
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: "Invalid or Expired Token." });
-  }
-};
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
 
-
-exports.verifyUser = (req, res, next) => {
-  const token = req.header("Authorization");
-  if (!token) return res.status(401).json({ message: "Access denied. No token provided." });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(400).json({ message: "Invalid token." });
-  }
-};
-
-const verifyOwner = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user || user.role !== "owner") {
-      return res.status(403).json({ error: "Access Denied. Only Owners Allowed." });
+        next();
+    } catch (error) {
+        console.error("Token Verification Error:", error);
+        return res.status(401).json({ message: "Invalid token" });
     }
-    next();
-  } catch (error) {
-    res.status(500).json({ error: "Error verifying owner." });
-  }
 };
 
-module.exports = { verifyToken, verifyOwner };
+// ✅ Fix Admin Verification to Use a Proper ObjectId
+exports.verifyAdmin = async (req, res, next) => {
+    try {
+        const authHeader = req.header("Authorization");
+
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({ message: "No token, authorization denied" });
+        }
+
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+
+        // ✅ Ensure the user ID is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(req.user.id)) {
+            return res.status(400).json({ message: "Invalid user ID format" });
+        }
+
+        // ✅ Find the user in the database
+        const admin = await User.findById(req.user.id);
+        if (!admin || admin.role !== "admin") {
+            return res.status(403).json({ message: "Access denied. Admins only." });
+        }
+
+        next();
+    } catch (error) {
+        console.error("Admin Verification Error:", error);
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
